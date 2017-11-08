@@ -6,6 +6,7 @@ use App\Events\EventServiceProvider;
 use App\Listeners\ClearFusionPBXCache;
 // ~ use Illuminate\Foundation\Support\Providers\EventServiceProvider;
 use Api\Extension\Events\ExtensionWasCreated;
+use Api\Extension\Events\ExtensionWasUpdated;
 
 class ExtensionServiceProvider extends EventServiceProvider
 {

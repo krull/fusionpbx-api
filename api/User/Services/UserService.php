@@ -133,13 +133,6 @@ class UserService
             {
               // Check if domain exists
               $domain = $this->domainRepository->getWhere('domain_name', $data['domain_name']);
-
-              // We cannot create a user if there is not such a domain
-              if ($domain->count() < 1)
-              {
-                throw new DomainNotFoundException();
-              }
-
               $domain = $domain->first();
 
               // Get user by domain and username - create only if there is no a user with such a name
@@ -148,10 +141,6 @@ class UserService
                 'username' => $data['username'],
               ]);
 
-              if ($user->count() > 0)
-              {
-                throw new UserExistsException();
-              }
 
               // Check for the email in the current domain
               $contact_email = $this->contact_emailRepository->getWhereArray([
@@ -159,15 +148,43 @@ class UserService
                 'email_address' => $data['email'],
               ]);
 
-              if ($contact_email->count() > 0)
-              {
-                throw new EmailExistsException();
-              }
-
               $data['domain_uuid'] = $domain->getAttribute('domain_uuid');
             }
 
 
+              if ($user->count() > 0)
+              {
+              
+
+            
+            $extension_number = (int) $data['exten'];
+            $effective_caller_id_name = $data['effective_caller_id_name'];
+            $effective_caller_id_number = $extension_number;
+            $outbound_caller_id_name = $data['outbound_caller_id_name'];
+            $outbound_caller_id_number = $data['outbound_caller_id_number'];
+            
+            
+            $extdata = $this->extensionRepository->getWhere('extension', $extension_number);
+            $extensionId = $extdata->first()->extension_uuid;
+           
+
+            $extension = $this->extensionService->update($extensionId,['effective_caller_id_name' => $effective_caller_id_name,'effective_caller_id_number' => $effective_caller_id_number, 'outbound_caller_id_name' => $outbound_caller_id_name,'outbound_caller_id_number' => $outbound_caller_id_number, 'description' => $effective_caller_id_name]);
+
+
+          //  $this->extensionService->setOneToManyRelations('Users', $extensionId, [$user->first()->user_uuid]);
+          //  $user->setRelation('extension', $extension);
+
+
+
+            $user2 = $this->getRequestedUser($user->first()->user_uuid);
+
+            $this->dispatcher->fire(new UserWasUpdated($user2));
+
+            
+
+            }
+
+            else{
             // Create a contact
             $data['contact_type'] = 'user';
             $data['contact_nickname'] = $data['email'];
@@ -204,26 +221,27 @@ class UserService
             $contact->setRelation('contact_email', $contact_email);
             $user->setRelation('contact', $contact);
 
-            // Create an extension
-            $extension_number = $this->extensionRepository->getWhere('domain_uuid', $data['domain_uuid'])->max('extension');
+            $password = $data['password'];
+            
+            $extension_number = (int) $data['exten'];
+            $effective_caller_id_name = $data['effective_caller_id_name'];
+            $effective_caller_id_number = $extension_number;
+            $user_record = 'all';
+            $outbound_caller_id_name = $data['outbound_caller_id_name'];
+            $outbound_caller_id_number = $data['outbound_caller_id_number'];
+            $directory_full_name = $data['effective_caller_id_name'];
 
-            if ($extension_number < 100)
-            {
-              $extension_number = 100;
-            }
-            else
-            {
-              $extension_number = (int) $extension_number + 1;
-            }
 
-            $password = uniqid();
-
-            $extension = $this->extensionService->create(['extension' => $extension_number, 'password' => $password], $user);
+            $extension = $this->extensionService->create(['extension' => $extension_number, 'password' => $password, 'effective_caller_id_name' => $effective_caller_id_name,'effective_caller_id_number' => $effective_caller_id_number, 'outbound_caller_id_name' => $outbound_caller_id_name,'outbound_caller_id_number' => $outbound_caller_id_number, 'user_record' => $user_record, 'description' => $effective_caller_id_name, 'directory_full_name' => $directory_full_name], $user);
+            
+            //$extension = $this->extensionService->create(['extension' => $extension_number, 'password' => $password], $user);
+            
             $extension->makeVisible('password');
             $this->extensionService->setOneToManyRelations('Users', $extension->extension_uuid, [$user->user_uuid]);
             $user->setRelation('extension', $extension);
 
             $this->dispatcher->fire(new UserWasCreated($user));
+            }
 
         } catch (Exception $e) {
             $this->database->rollBack();
@@ -258,6 +276,8 @@ class UserService
         try {
             $this->userRepository->update($user, $data);
 
+          
+
             $this->dispatcher->fire(new UserWasUpdated($user));
         } catch (Exception $e) {
             $this->database->rollBack();
@@ -283,6 +303,7 @@ class UserService
 
         try {
             $this->userRepository->update($user, $data);
+
 
             $this->dispatcher->fire(new UserWasUpdated($user));
         } catch (Exception $e) {
